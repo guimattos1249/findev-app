@@ -4,8 +4,12 @@ import MapView, { Marker, Callout } from 'react-native-maps';
 import { requestPermissionsAsync, getCurrentPositionAsync } from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 
+import api from '../services/api';
+
 function Main({ navigation }) {
+  const [devs, setDevs] = useState([]);
   const [currentRegion, setCurrentRegion] = useState(null);
+  const [techs, setTechs] = useState('');
 
   useEffect(() => {
     async function loadInitalPosition() {
@@ -29,6 +33,25 @@ function Main({ navigation }) {
     loadInitalPosition();
   }, []);
 
+  async function loadDevs() {
+    
+    const { latitude, longitude } = currentRegion;
+    
+    const response = await api.get('/search', {
+      params: {
+        latitude,
+        longitude,
+        techs,
+      }
+    });
+
+    setDevs(response.data.devs);
+  }
+
+  function handleRegionChanged(region) {
+    setCurrentRegion(region);
+  }
+
   if(!currentRegion) {
     return null;
   }
@@ -36,21 +59,29 @@ function Main({ navigation }) {
   return (
     <>
       <MapView 
+        onRegionChangeComplete={handleRegionChanged}
         initialRegion={currentRegion} 
-        style={styles.map}>
-        <Marker coordinate={{ latitude: -22.4743378, longitude: -48.9757239 }}>
-          <Image style={styles.avatar} source={{uri: 'https://avatars0.githubusercontent.com/u/50272051?s=460&v=4'}} />
-          
-          <Callout onPress={() => {
-            navigation.navigate('Profile', { github_username: 'guimattos1249' });
-          }}>
-            <View style={styles.callout}>
-              <Text style={styles.devName}>Guilherme Mattos</Text>
-              <Text style={styles.devBio}>Computer Science student and Dev.</Text>
-              <Text style={styles.devTechs}>C++, Node.Js, React-Native</Text>
-            </View>
-          </Callout>
-        </Marker>
+        style={styles.map}
+      >
+        {devs.map(dev => (
+          <Marker
+            key={dev._id}
+            coordinate={{
+              longitude: dev.location.coordinates[0],
+              latitude: dev.location.coordinates[1], 
+            }}>
+            <Image style={styles.avatar} source={{uri: dev.avatar_url}} />
+            
+            <Callout onPress={() => {
+              navigation.navigate('Profile', { github_username: dev.github_username });}}>
+              <View style={styles.callout}>
+                <Text style={styles.devName}>{dev.name}</Text>
+                <Text style={styles.devBio}>{dev.bio}</Text>
+                <Text style={styles.devTechs}>{dev.techs.join(', ')}</Text>
+              </View>
+            </Callout>
+          </Marker>
+        ))}
       </MapView>
 
       <View style={styles.searchFrom}>
@@ -60,9 +91,11 @@ function Main({ navigation }) {
             placeholderTextColor="#999"
             autoCapitalize="words"
             autoCorrect={false}
+            value={techs}
+            onChangeText={setTechs}
           />
 
-          <TouchableOpacity onPress={() => {}} style={styles.loadButton}>
+          <TouchableOpacity onPress={loadDevs} style={styles.loadButton}>
             <MaterialIcons name="my-location" size={20} color="#FFF" />
           </TouchableOpacity>
       </View>
